@@ -18,8 +18,13 @@ namespace SpamClassification
     {
         private Data table;
         private List<fileData> filesData;
+        private List<fileData> spamFilesData;
+        public List<string> spamFiles;
         public static double defaultProbability = 0.4;
-        public static string defaultLexemCount = "15";
+        public static double onlyNotInSpam = 0.01;
+        public static double onlyInSpam = 0.99;
+        public static string defaultLexemCount = "20";
+        public static double lowestSpamProbability = 1;
 
         private class fileData
         {
@@ -40,6 +45,25 @@ namespace SpamClassification
                         this.wordsProbabilities.Add(word, data.getProb(word)[2]);
                     else
                         this.wordsProbabilities.Add(word, defaultProbability);
+                }
+            }
+
+            public void addWord(string word)
+            {
+                if (!this.wordsProbabilities.ContainsKey(word))
+                {
+                    this.wordsProbabilities.Add(word, 0.0);
+                }
+            }
+
+            public void updateWordsProbabilities(Data data)
+            {
+                for(int i = 0; i < wordsProbabilities.Count; i++)
+                {
+                    if (data.ContainsKey(wordsProbabilities.ElementAt(i).Key))
+                        this.wordsProbabilities[wordsProbabilities.ElementAt(i).Key] = data.getProb(wordsProbabilities.ElementAt(i).Key)[2];
+                    else
+                        this.wordsProbabilities[wordsProbabilities.ElementAt(i).Key] = defaultProbability;
                 }
             }
 
@@ -124,9 +148,9 @@ namespace SpamClassification
                     arr[1] = (double)pair.Value[1] / HamCount;
 
                     if (pair.Value[0] == 0)
-                        arr[2] = 0.01;
+                        arr[2] = onlyNotInSpam;
                     else if (pair.Value[1] == 0)
-                        arr[2] = 0.99;
+                        arr[2] = onlyInSpam;
                     else
                         arr[2] = arr[0] / (arr[0] + arr[1]);
 
@@ -189,59 +213,15 @@ namespace SpamClassification
             button3.Enabled = false;
             button4.Enabled = false;
             button5.Enabled = false;
+            button6.Enabled = false;
             textBox1.Enabled = false;
             table = new Data();
             filesData = new List<fileData>();
+            spamFilesData = new List<fileData>();
+            spamFiles = new List<string>();
         }
 
         private void button1_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                OpenFileDialog fop = new OpenFileDialog();
-                fop.Multiselect = true;
-                fop.InitialDirectory = "D:\\STUDIJOS\\6 semestras\\Intelektikos pagrindai\\L3";
-                fop.Filter = "txt|*.txt";
-                fop.Title = "Pasirinkti spamo failus";
-
-                String pattern = @"[A-Za-z0-9$'""]+";
-                int spamLettersCount = 0;
-                if (fop.ShowDialog() == DialogResult.OK)
-                {
-                    foreach (String filename in fop.FileNames)
-                    {
-                        FileStream FS = new FileStream(filename, FileMode.Open, FileAccess.Read);
-                        var lines = File.ReadLines(filename);
-                        foreach (var line in lines)
-                        {
-                            foreach (Match m in Regex.Matches(line, pattern))
-                            {
-                                table.addSpamPair(m.Value);
-                            }
-                        }
-                        spamLettersCount++;
-                        FS.Close();
-                    }
-                    MessageBox.Show("Spamo failai sėkmingai nuskaityti!", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    richTextBox1.Text += "Iš viso nuskaityta SPAM failų: " + spamLettersCount + "\n";
-                    button2.Enabled = true;
-                    button2.Focus();
-                }
-                foreach (KeyValuePair<string, int[]> pair in table.getAllValues())
-                {
-                    //richTextBox1.Text += pair.Key + ": " + pair.Value[0] + ", " + pair.Value[1] + "\n";
-                    //Console.WriteLine("Key: {0} Values: {1},{2}",
-                    //    pair.Key,
-                    //    pair.Value[0], pair.Value[1]);
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
-            }
-        }
-
-        private void button2_Click(object sender, EventArgs e)
         {
             try
             {
@@ -271,6 +251,52 @@ namespace SpamClassification
                     }
                     richTextBox1.Text += "Iš viso nuskaityta HAM failų: " + HamLettersCount + "\n";
                     MessageBox.Show("Ne spamo failai sėkmingai nuskaityti!", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    button2.Enabled = true;
+                    button2.Focus();
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                OpenFileDialog fop = new OpenFileDialog();
+                fop.Multiselect = true;
+                fop.InitialDirectory = "D:\\STUDIJOS\\6 semestras\\Intelektikos pagrindai\\L3";
+                fop.Filter = "txt|*.txt";
+                fop.Title = "Pasirinkti spamo failus";
+
+                String pattern = @"[A-Za-z0-9$'""]+";
+                int spamLettersCount = 0;
+                if (fop.ShowDialog() == DialogResult.OK)
+                {
+                    foreach (String filename in fop.FileNames)
+                    {
+                        fileData temp = new fileData();
+                        temp.fileName = filename;
+
+                        FileStream FS = new FileStream(filename, FileMode.Open, FileAccess.Read);
+                        var lines = File.ReadLines(filename);
+                        foreach (var line in lines)
+                        {
+                            foreach (Match m in Regex.Matches(line, pattern))
+                            {
+                                table.addSpamPair(m.Value);
+                                temp.addWord(m.Value);
+                            }
+                        }
+                        spamLettersCount++;
+                        spamFiles.Add(filename);
+                        spamFilesData.Add(temp);
+                        FS.Close();
+                    }
+                    MessageBox.Show("Spamo failai sėkmingai nuskaityti!", "Information", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    richTextBox1.Text += "Iš viso nuskaityta SPAM failų: " + spamLettersCount + "\n";
                     button3.Enabled = true;
                     button3.Focus();
                 }
@@ -280,6 +306,7 @@ namespace SpamClassification
                 MessageBox.Show("Error: Could not read file from disk. Original error: " + ex.Message);
             }
         }
+
 
         private void openFileDialog1_FileOk(object sender, CancelEventArgs e)
         {
@@ -304,7 +331,7 @@ namespace SpamClassification
                 fop.Multiselect = true;
                 fop.InitialDirectory = "D:\\STUDIJOS\\6 semestras\\Intelektikos pagrindai\\L3";
                 fop.Filter = "txt|*.txt";
-                fop.Title = "Pasirinkti spamo failus";
+                fop.Title = "Pasirinkti laiškus tikrinimui";
 
                 String pattern = @"[A-Za-z0-9$'""]+";
                 int lettersCount = 0;
@@ -343,29 +370,63 @@ namespace SpamClassification
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
+            button5.Enabled = false;
             if (!Regex.IsMatch(textBox1.Text, @"^\d+$"))
             {
                 textBox1.Text = "Įveskite natūralų skaičių!";
                 textBox1.SelectAll();
                 textBox1.Focus(); //you need to call this to show selection if it doesn't has focus
-                button5.Enabled = false;
+                button6.Enabled = false;
             }
-            else if(textBox1.Enabled) button5.Enabled = true;
+            else if(textBox1.Enabled) button6.Enabled = true;
         }
 
         private void button5_Click(object sender, EventArgs e)
         {
             richTextBox1.Text += "\n-----------------------------------------------------------------\n";
             richTextBox1.Text +=  "Kai leksemų skaičius: " + textBox1.Text + "\n\n";
+            int false_positive = 0;
+            int true_positive = 0;
             foreach (var file in filesData)
             {
+                string name = Path.GetFileName(file.fileName);
+                
                 file.countProbability(int.Parse(textBox1.Text));
                 richTextBox1.Text += "Tikimybė, kad failas " + file.fileName + " yra SPAM: " + file.probability + "\n";
+                if (file.probability >= lowestSpamProbability)
+                {
+                    richTextBox1.Text += "Failas yra SPAM\n";
+                    if (Regex.IsMatch(name, @"ne"))
+                        false_positive++;
+                    else true_positive++;
+                }
+                else
+                {
+                    richTextBox1.Text += "Failas yra NE SPAM\n";
+                }
             }
+            richTextBox1.Text += "true_positive = "+ true_positive + "\n";
+            richTextBox1.Text += "false_positive = " + false_positive + "\n";
         }
 
-       
-        
-        
+        private void button6_Click(object sender, EventArgs e)
+        {
+            foreach (fileData file in spamFilesData)
+            {
+                file.updateWordsProbabilities(table);
+            }
+            foreach (fileData file in spamFilesData)
+            {
+                file.countProbability(int.Parse(textBox1.Text));
+            }
+            foreach (fileData file in spamFilesData)
+            {
+                if (file.probability < lowestSpamProbability)
+                    lowestSpamProbability = file.probability;
+            }
+            //lowestSpamProbability += lowestSpamProbability * 0.4;
+            richTextBox1.Text += "lowestSpamProbability: " + lowestSpamProbability + "\n";
+            button5.Enabled = true;
+        }
     }
 }
