@@ -387,10 +387,19 @@ namespace SpamClassification
             richTextBox1.Text +=  "Kai leksemų skaičius: " + textBox1.Text + "\n\n";
             int false_positive = 0;
             int true_positive = 0;
+            int true_negative = 0;
+            int notSpamCount = 0;
+            int spamCount = 0;
+            double tikslumas = 0.0;
             foreach (var file in filesData)
             {
                 string name = Path.GetFileName(file.fileName);
-                
+
+                if (Regex.IsMatch(name, @"ne"))
+                    notSpamCount++;
+                else
+                    spamCount++;
+
                 file.countProbability(int.Parse(textBox1.Text));
                 richTextBox1.Text += "Tikimybė, kad failas " + file.fileName + " yra SPAM: " + file.probability + "\n";
                 if (file.probability >= lowestSpamProbability)
@@ -403,10 +412,15 @@ namespace SpamClassification
                 else
                 {
                     richTextBox1.Text += "Failas yra NE SPAM\n";
+                    if (Regex.IsMatch(name, @"ne"))
+                        true_negative++;
                 }
             }
             richTextBox1.Text += "true_positive = "+ true_positive + "\n";
             richTextBox1.Text += "false_positive = " + false_positive + "\n";
+            richTextBox1.Text += "Iš viso ne spam failų = " + notSpamCount + "\n";
+            tikslumas = ((double)(true_positive + true_negative) / (spamCount + notSpamCount)) * 100;
+            richTextBox1.Text += "Klasifikatoriaus tikslumas = " + tikslumas + "%\n";
         }
 
         private void button6_Click(object sender, EventArgs e)
